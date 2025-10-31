@@ -17,13 +17,13 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    @Value("${app.jwt.secret-key}")
+    @Value("${jwt.secret_key:taideptrai_taideptrai_taideptrai_1234567890123456}")
     private String SECRET_KEY;
 
-    @Value("${app.jwt.access-token-expiration:36000000}") // 10 hours
+    @Value("${jwt.access-token-expiration:36000000}") // 10 hours
     private long ACCESS_TOKEN_EXPIRATION;
 
-    @Value("${app.jwt.refresh-token-expiration:604800000}") // 7 days
+    @Value("${jwt.refresh-token-expiration:604800000}") // 7 days
     private long REFRESH_TOKEN_EXPIRATION;
 
     private Key getSigningKey() {
@@ -120,5 +120,10 @@ public class JwtService {
             throw new IllegalStateException("User is not authenticated");
         }
         return (User) authentication.getPrincipal();
+    }
+
+
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get("type", String.class));
     }
 }

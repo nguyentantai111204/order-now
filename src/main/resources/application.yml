@@ -28,7 +28,7 @@ cloudinary:
   api_secret: whL4chiuN7YkMMW7BPoj_6TCXMk
 
 jwt:
-  secret_key: taideptrai_taideptrai_taideptrai_123456
+  secret_key: taideptrai_taideptrai_taideptrai_1234567890123456
   access-token-expiration: 36000000
   refresh-token-expiration: 604800000
 server:

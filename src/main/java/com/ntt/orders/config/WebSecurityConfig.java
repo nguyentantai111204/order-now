@@ -1,6 +1,7 @@
 package com.ntt.orders.config;
 
 import com.ntt.orders.auth.service.JwtFilter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -24,59 +25,37 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class WebSecurityConfig {
 
+    private final JwtFilter jwtFilter;
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // ===== PUBLIC - Không cần đăng nhập =====
-                        // Auth endpoints
                         .requestMatchers("/api/auth/**").permitAll()
-
-                        // Menu - Xem menu public
-                        .requestMatchers(HttpMethod.GET, "/api/menu/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
-
-                        // Table - Quét QR code
-                        .requestMatchers(HttpMethod.GET, "/api/tables/*/qr").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/tables/*/info").permitAll()
-
-                        // Order - KHÁCH VÃNG LAI có thể order
+                        .requestMatchers(HttpMethod.GET, "/api/menu/**", "/api/categories/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/tables/*/qr", "/api/tables/*/info").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/orders/guest").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/orders/*/status").permitAll()
-
-                        // Payment - Callback từ payment gateway
                         .requestMatchers("/api/payments/callback/**").permitAll()
 
-                        // ===== CUSTOMER - Cần đăng nhập =====
                         .requestMatchers("/api/orders/my-orders").hasAnyRole("CUSTOMER", "STAFF", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/orders").hasAnyRole("CUSTOMER", "STAFF", "ADMIN")
-
-                        // Loyalty - Xem điểm
                         .requestMatchers("/api/loyalty/**").hasAnyRole("CUSTOMER", "STAFF", "ADMIN")
 
-                        // ===== STAFF - Nhân viên phục vụ =====
                         .requestMatchers("/api/orders/*/update-status").hasAnyRole("STAFF", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/orders/pending").hasAnyRole("STAFF", "ADMIN")
 
-                        // ===== ADMIN - Quản lý =====
-                        .requestMatchers(HttpMethod.POST, "/api/menu/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/menu/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/menu/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/menu/**", "/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/menu/**", "/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/menu/**", "/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers("/api/tables/**", "/api/users/**", "/api/reports/**").hasRole("ADMIN")
 
-                        .requestMatchers(HttpMethod.POST, "/api/categories/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("ADMIN")
-
-                        .requestMatchers("/api/tables/**").hasRole("ADMIN")
-                        .requestMatchers("/api/users/**").hasRole("ADMIN")
-                        .requestMatchers("/api/reports/**").hasRole("ADMIN")
-
-                        // Tất cả request khác cần authenticate
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
@@ -85,23 +64,19 @@ public class WebSecurityConfig {
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
     @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "http://localhost:5173",
-                "http://localhost:3000"
-
-        ));
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

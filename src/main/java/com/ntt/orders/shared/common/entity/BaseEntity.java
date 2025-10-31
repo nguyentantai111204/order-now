@@ -16,7 +16,7 @@ public abstract class BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", columnDefinition = "CHAR(36)")
-    private UUID id;
+    private String id;
 
     @Enumerated(EnumType.STRING)
     private BaseStatus status = BaseStatus.ACTIVE;

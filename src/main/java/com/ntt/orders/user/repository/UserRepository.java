@@ -2,6 +2,7 @@ package com.ntt.orders.user.repository;
 
 import com.ntt.orders.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Optional;
 

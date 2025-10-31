@@ -1,62 +1,84 @@
 package com.ntt.orders.auth.service;
-import com.ntt.orders.user.entity.User;
+
 import com.ntt.orders.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtFilter.class);
+
     private final JwtService jwtService;
     private final UserRepository userRepository;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
+    ) throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
+        final String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = authHeader.substring(7);
+        final String jwt = authHeader.substring(7);
 
         try {
-            String phoneNumber = jwtService.extractPhoneNumber(token);
+            // QUAN TRỌNG: Kiểm tra token type
+            String tokenType = jwtService.extractTokenType(jwt);
+            if (!"access".equals(tokenType)) {
+                logger.warn("Attempt to use non-access token as access token: {}", tokenType);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            final String phoneNumber = jwtService.extractPhoneNumber(jwt);
 
             if (phoneNumber != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-                User user = userRepository.findByPhoneNumber(phoneNumber)
-                        .orElse(null);
-
-                if (user != null && jwtService.isTokenValid(token, phoneNumber)) {
+                UserDetails userDetails = userRepository.findByPhoneNumber(phoneNumber).orElse(null);
+                if (userDetails != null && jwtService.isTokenValid(jwt, phoneNumber)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            user,
-                            null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+                            userDetails, null, userDetails.getAuthorities()
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    logger.debug("Authenticated user: {}", phoneNumber);
                 }
             }
         } catch (Exception e) {
-            // Log lỗi để debug
-            logger.error("JWT Filter error: " + e.getMessage());
+            logger.error("JWT authentication failed: {}", e.getMessage());
+            // Clear context for security
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        String path = request.getServletPath();
+        // Skip JWT filter for public endpoints
+        return path.startsWith("/api/auth/") ||
+                path.contains("/swagger") ||
+                path.contains("/api-docs");
     }
 }

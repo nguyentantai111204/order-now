@@ -1,5 +1,6 @@
 package com.ntt.orders.order.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.ntt.orders.table.entity.DinningTable;
 import com.ntt.orders.payment.entity.Payment;
 import com.ntt.orders.shared.common.entity.BaseEntity;
