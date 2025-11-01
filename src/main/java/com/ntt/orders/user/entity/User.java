@@ -26,7 +26,7 @@ public class User extends BaseEntity implements UserDetails {
     @Column(nullable = false, length = 100)
     private String fullName;
 
-    @Column(length = 15)
+    @Column(nullable = false, unique = true, length = 15)
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)

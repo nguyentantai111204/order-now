@@ -1,5 +1,6 @@
 package com.ntt.orders.auth.service;
 
+import com.ntt.orders.shared.common.exception.ResourceNotFoundException;
 import com.ntt.orders.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -43,7 +44,6 @@ public class JwtFilter extends OncePerRequestFilter {
         final String jwt = authHeader.substring(7);
 
         try {
-            // QUAN TRỌNG: Kiểm tra token type
             String tokenType = jwtService.extractTokenType(jwt);
             if (!"access".equals(tokenType)) {
                 logger.warn("Attempt to use non-access token as access token: {}", tokenType);
@@ -54,7 +54,8 @@ public class JwtFilter extends OncePerRequestFilter {
             final String phoneNumber = jwtService.extractPhoneNumber(jwt);
 
             if (phoneNumber != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = userRepository.findByPhoneNumber(phoneNumber).orElse(null);
+                UserDetails userDetails = userRepository.findByPhoneNumber(phoneNumber)
+                                            .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại"));
                 if (userDetails != null && jwtService.isTokenValid(jwt, phoneNumber)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities()
@@ -66,7 +67,6 @@ public class JwtFilter extends OncePerRequestFilter {
             }
         } catch (Exception e) {
             logger.error("JWT authentication failed: {}", e.getMessage());
-            // Clear context for security
             SecurityContextHolder.clearContext();
         }
 
@@ -76,8 +76,8 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
-        // Skip JWT filter for public endpoints
-        return path.startsWith("/api/auth/") ||
+        return path.equals("/api/auth/login") ||
+                path.equals("/api/auth/register") ||
                 path.contains("/swagger") ||
                 path.contains("/api-docs");
     }

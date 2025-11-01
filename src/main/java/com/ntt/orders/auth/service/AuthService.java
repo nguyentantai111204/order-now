@@ -4,6 +4,7 @@ import com.ntt.orders.auth.dto.request.LoginRequest;
 import com.ntt.orders.auth.dto.request.RegisterRequest;
 import com.ntt.orders.auth.dto.response.AuthResponse;
 import com.ntt.orders.shared.common.exception.BadRequestException;
+import com.ntt.orders.shared.common.exception.ResourceNotFoundException;
 import com.ntt.orders.user.entity.User;
 import com.ntt.orders.user.repository.UserRepository;
 import com.ntt.orders.shared.common.enums.UserRole;
@@ -80,7 +81,7 @@ public class AuthService {
 
             // Sau khi xác thực thành công mới lấy user
             User user = userRepository.findByPhoneNumber(request.getPhoneNumber().trim())
-                    .orElseThrow(() -> new BadRequestException("Người dùng không tồn tại"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại"));
 
             // Update last login
             user.setLastLoginAt(java.time.LocalDateTime.now());
@@ -102,6 +103,20 @@ public class AuthService {
     }
 
     @Transactional
+    public void logout(String refreshToken) {
+        try {
+            String phoneNumber = jwtService.extractPhoneNumber(refreshToken);
+            User user = userRepository.findByPhoneNumber(phoneNumber).orElse(null);
+            if (user != null) {
+                user.setRefreshToken(null); // Xóa refresh token
+                userRepository.save(user);
+            }
+        }catch (BadCredentialsException e){
+            throw new BadRequestException("Token không hợp lệ");
+        }
+    }
+
+    @Transactional
     public AuthResponse refreshToken(String refreshToken) {
         logger.info("Token refresh attempt");
 
@@ -109,7 +124,6 @@ public class AuthService {
             throw new BadRequestException("Refresh token không hợp lệ hoặc đã hết hạn");
         }
 
-        // QUAN TRỌNG: Verify token type
         String tokenType = jwtService.extractTokenType(refreshToken);
         if (!"refresh".equals(tokenType)) {
             logger.warn("Invalid token type for refresh: {}", tokenType);
@@ -121,8 +135,10 @@ public class AuthService {
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy người dùng"));
 
         if (!refreshToken.equals(user.getRefreshToken())) {
-            logger.warn("Refresh token mismatch for user: {}", phoneNumber);
-            throw new BadRequestException("Refresh token không khớp");
+            // Token đã được sử dụng → thu hồi tất cả tokens của user
+            user.setRefreshToken(null);
+            userRepository.save(user);
+            throw new BadRequestException("Refresh token đã được sử dụng. Vui lòng đăng nhập lại.");
         }
 
         String newAccessToken = jwtService.generateAccessToken(user);
