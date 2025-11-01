@@ -5,6 +5,7 @@ import com.ntt.orders.shared.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.persistence.Table;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.util.List;
 
@@ -14,12 +15,15 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 public class Category extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String name;
 
     private String description;
+
+    @Column(nullable = false, unique = true)
+    private String slug;
 
     @OneToMany(mappedBy = "category")
     private List<MenuItem> menuItems;

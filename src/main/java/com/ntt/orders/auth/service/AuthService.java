@@ -3,11 +3,11 @@ package com.ntt.orders.auth.service;
 import com.ntt.orders.auth.dto.request.LoginRequest;
 import com.ntt.orders.auth.dto.request.RegisterRequest;
 import com.ntt.orders.auth.dto.response.AuthResponse;
-import com.ntt.orders.shared.common.exception.BadRequestException;
-import com.ntt.orders.shared.common.exception.ResourceNotFoundException;
+import com.ntt.orders.auth.mapper.AuthMapper;
+import com.ntt.orders.shared.common.response.ApiResponse;
+import com.ntt.orders.shared.common.response.ResponseCode;
 import com.ntt.orders.user.entity.User;
 import com.ntt.orders.user.repository.UserRepository;
-import com.ntt.orders.shared.common.enums.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,46 +30,59 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final AuthMapper authMapper;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public ApiResponse<AuthResponse> register(RegisterRequest request) {
         logger.info("Registration attempt for phone: {}", request.getPhoneNumber());
 
-        if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
-            throw new BadRequestException("Số điện thoại đã tồn tại!");
+        try {
+            if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+                return ApiResponse.error(
+                        "Số điện thoại đã tồn tại!",
+                        ResponseCode.DUPLICATE_ENTRY
+                );
+            }
+
+            // Validate password strength
+            if (request.getPassword().length() < 6) {
+                return ApiResponse.error(
+                        "Mật khẩu phải có ít nhất 6 ký tự",
+                        ResponseCode.VALIDATION_ERROR
+                );
+            }
+
+            User user = authMapper.toEntity(request);
+            // ✅ QUAN TRỌNG: Encode password trước khi save
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+
+            userRepository.save(user);
+
+            String accessToken = jwtService.generateAccessToken(user);
+            String refreshToken = jwtService.generateRefreshToken(user);
+
+            user.setRefreshToken(refreshToken);
+            userRepository.save(user);
+
+            logger.info("User registered successfully: {}", user.getPhoneNumber());
+
+            AuthResponse authResponse = authMapper.toAuthResponse(user, accessToken, refreshToken);
+            return ApiResponse.created(authResponse);
+
+        } catch (Exception e) {
+            logger.error("Registration failed: {}", e.getMessage());
+            return ApiResponse.error(
+                    "Đăng ký thất bại: " + e.getMessage(),
+                    ResponseCode.INTERNAL_ERROR
+            );
         }
-
-        // Validate password strength
-        if (request.getPassword().length() < 6) {
-            throw new BadRequestException("Mật khẩu phải có ít nhất 6 ký tự");
-        }
-
-        User user = User.builder()
-                .fullName(request.getFullName().trim())
-                .phoneNumber(request.getPhoneNumber().trim())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .role(UserRole.CUSTOMER)
-                .build();
-
-        userRepository.save(user);
-
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
-
-        user.setRefreshToken(refreshToken);
-        userRepository.save(user);
-
-        logger.info("User registered successfully: {}", user.getPhoneNumber());
-
-        return new AuthResponse(accessToken, refreshToken, user.getFullName(), user.getRole().name());
     }
 
     @Transactional
-    public AuthResponse login(LoginRequest request) {
+    public ApiResponse<AuthResponse> login(LoginRequest request) {
         logger.info("Login attempt for phone: {}", request.getPhoneNumber());
 
         try {
-            // QUAN TRỌNG: Authenticate trước khi tìm user
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             request.getPhoneNumber().trim(),
@@ -79,11 +92,9 @@ public class AuthService {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Sau khi xác thực thành công mới lấy user
             User user = userRepository.findByPhoneNumber(request.getPhoneNumber().trim())
-                    .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại"));
+                    .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
 
-            // Update last login
             user.setLastLoginAt(java.time.LocalDateTime.now());
 
             String accessToken = jwtService.generateAccessToken(user);
@@ -94,61 +105,101 @@ public class AuthService {
 
             logger.info("User logged in successfully: {}", user.getPhoneNumber());
 
-            return new AuthResponse(accessToken, refreshToken, user.getFullName(), user.getRole().name());
+            AuthResponse authResponse = authMapper.toAuthResponse(user, accessToken, refreshToken);
+            return ApiResponse.success("Đăng nhập thành công", authResponse);
 
         } catch (BadCredentialsException e) {
             logger.warn("Failed login attempt for phone: {}", request.getPhoneNumber());
-            throw new BadRequestException("Sai số điện thoại hoặc mật khẩu");
+            return ApiResponse.error(
+                    "Sai số điện thoại hoặc mật khẩu",
+                    ResponseCode.INVALID_CREDENTIALS
+            );
+        } catch (Exception e) {
+            logger.error("Login failed: {}", e.getMessage());
+            return ApiResponse.error(
+                    "Đăng nhập thất bại: " + e.getMessage(),
+                    ResponseCode.INTERNAL_ERROR
+            );
         }
     }
 
     @Transactional
-    public void logout(String refreshToken) {
+    public ApiResponse<Void> logout(String refreshToken) {
         try {
             String phoneNumber = jwtService.extractPhoneNumber(refreshToken);
             User user = userRepository.findByPhoneNumber(phoneNumber).orElse(null);
             if (user != null) {
-                user.setRefreshToken(null); // Xóa refresh token
+                user.setRefreshToken(null);
                 userRepository.save(user);
+                logger.info("User logged out successfully: {}", phoneNumber);
+                return ApiResponse.success("Đăng xuất thành công", null);
             }
-        }catch (BadCredentialsException e){
-            throw new BadRequestException("Token không hợp lệ");
+            return ApiResponse.error("Người dùng không tồn tại", ResponseCode.USER_NOT_FOUND);
+        } catch (Exception e) {
+            logger.warn("Logout failed: {}", e.getMessage());
+            return ApiResponse.success("Đăng xuất thành công", null);
         }
     }
 
     @Transactional
-    public AuthResponse refreshToken(String refreshToken) {
+    public ApiResponse<AuthResponse> refreshToken(String refreshToken) {
         logger.info("Token refresh attempt");
 
-        if (!jwtService.validateToken(refreshToken)) {
-            throw new BadRequestException("Refresh token không hợp lệ hoặc đã hết hạn");
-        }
+        try {
+            if (!jwtService.validateToken(refreshToken)) {
+                return ApiResponse.error(
+                        "Refresh token không hợp lệ hoặc đã hết hạn",
+                        ResponseCode.UNAUTHORIZED
+                );
+            }
 
-        String tokenType = jwtService.extractTokenType(refreshToken);
-        if (!"refresh".equals(tokenType)) {
-            logger.warn("Invalid token type for refresh: {}", tokenType);
-            throw new BadRequestException("Invalid token type");
-        }
+            String tokenType = jwtService.extractTokenType(refreshToken);
+            if (!"refresh".equals(tokenType)) {
+                logger.warn("Invalid token type for refresh: {}", tokenType);
+                return ApiResponse.error(
+                        "Loại token không hợp lệ",
+                        ResponseCode.UNAUTHORIZED
+                );
+            }
 
-        String phoneNumber = jwtService.extractPhoneNumber(refreshToken);
-        User user = userRepository.findByPhoneNumber(phoneNumber)
-                .orElseThrow(() -> new BadRequestException("Không tìm thấy người dùng"));
+            String phoneNumber = jwtService.extractPhoneNumber(refreshToken);
+            User user = userRepository.findByPhoneNumber(phoneNumber)
+                    .orElse(null);
 
-        if (!refreshToken.equals(user.getRefreshToken())) {
-            // Token đã được sử dụng → thu hồi tất cả tokens của user
-            user.setRefreshToken(null);
+            if (user == null) {
+                return ApiResponse.error(
+                        "Không tìm thấy người dùng",
+                        ResponseCode.USER_NOT_FOUND
+                );
+            }
+
+            if (!refreshToken.equals(user.getRefreshToken())) {
+                // Token đã được sử dụng → thu hồi tất cả tokens của user
+                user.setRefreshToken(null);
+                userRepository.save(user);
+                return ApiResponse.error(
+                        "Refresh token đã được sử dụng. Vui lòng đăng nhập lại.",
+                        ResponseCode.UNAUTHORIZED
+                );
+            }
+
+            String newAccessToken = jwtService.generateAccessToken(user);
+            String newRefreshToken = jwtService.generateRefreshToken(user);
+
+            user.setRefreshToken(newRefreshToken);
             userRepository.save(user);
-            throw new BadRequestException("Refresh token đã được sử dụng. Vui lòng đăng nhập lại.");
+
+            logger.info("Token refreshed successfully for user: {}", user.getPhoneNumber());
+
+            AuthResponse authResponse = authMapper.toAuthResponse(user, newAccessToken, newRefreshToken);
+            return ApiResponse.success("Làm mới token thành công", authResponse);
+
+        } catch (Exception e) {
+            logger.error("Token refresh failed: {}", e.getMessage());
+            return ApiResponse.error(
+                    "Làm mới token thất bại: " + e.getMessage(),
+                    ResponseCode.INTERNAL_ERROR
+            );
         }
-
-        String newAccessToken = jwtService.generateAccessToken(user);
-        String newRefreshToken = jwtService.generateRefreshToken(user);
-
-        user.setRefreshToken(newRefreshToken);
-        userRepository.save(user);
-
-        logger.info("Token refreshed successfully for user: {}", user.getPhoneNumber());
-
-        return new AuthResponse(newAccessToken, newRefreshToken, user.getFullName(), user.getRole().name());
     }
 }

@@ -3,6 +3,8 @@ package com.ntt.orders.shared.common.entity;
 import com.ntt.orders.shared.common.enums.BaseStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -11,6 +13,7 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@SuperBuilder
 public abstract class BaseEntity {
 
     @Id
