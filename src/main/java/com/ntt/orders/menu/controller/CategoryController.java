@@ -3,12 +3,13 @@ package com.ntt.orders.menu.controller;
 import com.ntt.orders.menu.dto.request.CategoryRequest;
 import com.ntt.orders.menu.dto.response.CategoryResponse;
 import com.ntt.orders.menu.service.CategoryService;
+import com.ntt.orders.shared.common.dto.PageResponse;
 import com.ntt.orders.shared.common.response.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/categories")
@@ -18,15 +19,17 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<CategoryResponse>>> getAllCategories(
+    public ResponseEntity<ApiResponse<PageResponse<CategoryResponse>>> getAllCategories(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "10") int take
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int take
     ) {
-        List<CategoryResponse> categories = categoryService.getAllCategories(status, search, page, take);
-        return ResponseEntity.ok(ApiResponse.success(categories));
+        PageResponse<CategoryResponse> response = categoryService.getAllCategories(status, search, page, take);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CategoryResponse>> getCategoryById(@PathVariable String id) {
@@ -35,7 +38,7 @@ public class CategoryController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<CategoryResponse>> createCategory(@RequestBody CategoryRequest reque st) {
+    public ResponseEntity<ApiResponse<CategoryResponse>> createCategory(@RequestBody @Valid CategoryRequest request) {
         ApiResponse<CategoryResponse> response = categoryService.createCategory(request);
         return ResponseEntity.status(201).body(response);
     }
@@ -43,7 +46,7 @@ public class CategoryController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
             @PathVariable String id,
-            @RequestBody CategoryRequest request
+            @RequestBody @Valid CategoryRequest request
     ) {
         ApiResponse<CategoryResponse> response = categoryService.updateCategory(id, request);
         return ResponseEntity.ok(response);

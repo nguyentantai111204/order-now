@@ -4,6 +4,7 @@ import com.ntt.orders.shared.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import jakarta.persistence.Table;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.math.BigDecimal;
 
@@ -13,14 +14,14 @@ import java.math.BigDecimal;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 public class MenuItem extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
     private String description;
 
-    private String imageUrl;
+    private String image;
 
     @Column(nullable = false)
     private BigDecimal price;
