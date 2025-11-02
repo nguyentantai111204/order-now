@@ -40,7 +40,7 @@ public class AuthService {
             if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
                 return ApiResponse.error(
                         "Số điện thoại đã tồn tại!",
-                        ResponseCode.DUPLICATE_ENTRY
+                        ResponseCode.DUPLICATE_ENTRY, null
                 );
             }
 
@@ -48,12 +48,11 @@ public class AuthService {
             if (request.getPassword().length() < 6) {
                 return ApiResponse.error(
                         "Mật khẩu phải có ít nhất 6 ký tự",
-                        ResponseCode.VALIDATION_ERROR
+                        ResponseCode.VALIDATION_ERROR, null
                 );
             }
 
             User user = authMapper.toEntity(request);
-            // ✅ QUAN TRỌNG: Encode password trước khi save
             user.setPassword(passwordEncoder.encode(request.getPassword()));
 
             userRepository.save(user);
@@ -73,7 +72,7 @@ public class AuthService {
             logger.error("Registration failed: {}", e.getMessage());
             return ApiResponse.error(
                     "Đăng ký thất bại: " + e.getMessage(),
-                    ResponseCode.INTERNAL_ERROR
+                    ResponseCode.INTERNAL_ERROR, null
             );
         }
     }
@@ -86,7 +85,7 @@ public class AuthService {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             request.getPhoneNumber().trim(),
-                            request.getPassword()
+                            request.getPassword().trim()
                     )
             );
 
@@ -112,13 +111,13 @@ public class AuthService {
             logger.warn("Failed login attempt for phone: {}", request.getPhoneNumber());
             return ApiResponse.error(
                     "Sai số điện thoại hoặc mật khẩu",
-                    ResponseCode.INVALID_CREDENTIALS
+                    ResponseCode.INVALID_CREDENTIALS, null
             );
         } catch (Exception e) {
             logger.error("Login failed: {}", e.getMessage());
             return ApiResponse.error(
                     "Đăng nhập thất bại: " + e.getMessage(),
-                    ResponseCode.INTERNAL_ERROR
+                    ResponseCode.INTERNAL_ERROR, null
             );
         }
     }
@@ -134,7 +133,7 @@ public class AuthService {
                 logger.info("User logged out successfully: {}", phoneNumber);
                 return ApiResponse.success("Đăng xuất thành công", null);
             }
-            return ApiResponse.error("Người dùng không tồn tại", ResponseCode.USER_NOT_FOUND);
+            return ApiResponse.error("Người dùng không tồn tại", ResponseCode.USER_NOT_FOUND, null);
         } catch (Exception e) {
             logger.warn("Logout failed: {}", e.getMessage());
             return ApiResponse.success("Đăng xuất thành công", null);
@@ -149,7 +148,7 @@ public class AuthService {
             if (!jwtService.validateToken(refreshToken)) {
                 return ApiResponse.error(
                         "Refresh token không hợp lệ hoặc đã hết hạn",
-                        ResponseCode.UNAUTHORIZED
+                        ResponseCode.UNAUTHORIZED, null
                 );
             }
 
@@ -158,7 +157,7 @@ public class AuthService {
                 logger.warn("Invalid token type for refresh: {}", tokenType);
                 return ApiResponse.error(
                         "Loại token không hợp lệ",
-                        ResponseCode.UNAUTHORIZED
+                        ResponseCode.UNAUTHORIZED, null
                 );
             }
 
@@ -169,7 +168,7 @@ public class AuthService {
             if (user == null) {
                 return ApiResponse.error(
                         "Không tìm thấy người dùng",
-                        ResponseCode.USER_NOT_FOUND
+                        ResponseCode.USER_NOT_FOUND, null
                 );
             }
 
@@ -179,7 +178,7 @@ public class AuthService {
                 userRepository.save(user);
                 return ApiResponse.error(
                         "Refresh token đã được sử dụng. Vui lòng đăng nhập lại.",
-                        ResponseCode.UNAUTHORIZED
+                        ResponseCode.UNAUTHORIZED, null
                 );
             }
 
@@ -198,7 +197,7 @@ public class AuthService {
             logger.error("Token refresh failed: {}", e.getMessage());
             return ApiResponse.error(
                     "Làm mới token thất bại: " + e.getMessage(),
-                    ResponseCode.INTERNAL_ERROR
+                    ResponseCode.INTERNAL_ERROR, null
             );
         }
     }

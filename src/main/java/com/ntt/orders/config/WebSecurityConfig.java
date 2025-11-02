@@ -38,6 +38,12 @@ public class WebSecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs.yaml"
+                        ).permitAll()
+
                         .requestMatchers(HttpMethod.GET, "/api/menu/**", "/api/categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/tables/*/qr", "/api/tables/*/info").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/orders/guest").permitAll()

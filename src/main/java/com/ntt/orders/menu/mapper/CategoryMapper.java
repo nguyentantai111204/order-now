@@ -13,6 +13,7 @@ public class CategoryMapper {
                 .status(BaseStatus.valueOf(request.getStatus().toUpperCase()))
                 .name(request.getName())
                 .description(request.getDescription())
+                .slug(request.getSlug())
                 .build();
     }
 

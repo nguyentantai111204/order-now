@@ -72,13 +72,14 @@ public class ApiResponse<T> {
     }
 
 
-    public static <T> ApiResponse<T> error(String message, String code) {
+    public static <T> ApiResponse<T> error(String message, String code, T data) {
         return ApiResponse.<T>builder()
                 .success(false)
                 .message(message)
                 .code(code)
-                .data(null)
+                .data(data)
                 .timestamp(LocalDateTime.now())
                 .build();
     }
+
 }

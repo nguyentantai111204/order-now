@@ -7,9 +7,9 @@ import com.ntt.orders.shared.common.response.ApiResponse;
 import java.util.List;
 
 public interface CategoryService {
-    List<CategoryResponse> getAllCategories();
+    List<CategoryResponse> getAllCategories(String status, String search, int page, int take);
     CategoryResponse getCategoryById(String id);
     ApiResponse<CategoryResponse> createCategory(CategoryRequest dto);
     ApiResponse<CategoryResponse> updateCategory(String id, CategoryRequest dto);
-    void deleteCategory(String id);
+    ApiResponse<Void> deleteCategory(String id);
 }
