@@ -6,6 +6,8 @@ import com.ntt.orders.shared.common.enums.TableStatus;
 import jakarta.persistence.*;
 import jakarta.persistence.Table;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
+
 import java.util.List;
 
 @Entity
@@ -14,7 +16,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 public class DinningTable extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String tableNumber;

@@ -10,7 +10,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PageResponse<T> {
-    private List<T> content;
+    private List<T> list;
     private int page;
     private int size;
     private long totalElements;
