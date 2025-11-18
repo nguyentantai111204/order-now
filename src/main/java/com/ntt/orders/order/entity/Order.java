@@ -25,8 +25,8 @@ public class Order extends BaseEntity {
     @JoinColumn(name = "table_id")
     private DinningTable table;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id",  nullable = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
     private User orderBy;
 
     @Enumerated(EnumType.STRING)
@@ -41,7 +41,7 @@ public class Order extends BaseEntity {
     @Column(precision = 10, scale = 2)
     private BigDecimal totalAmount;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems;
 
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)

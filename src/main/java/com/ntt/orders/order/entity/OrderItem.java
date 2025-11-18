@@ -1,4 +1,5 @@
 package com.ntt.orders.order.entity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.ntt.orders.menu.entity.MenuItem;
 import com.ntt.orders.shared.common.entity.BaseEntity;
 import jakarta.persistence.*;
@@ -15,11 +16,12 @@ import java.math.BigDecimal;
 @Builder
 public class OrderItem extends BaseEntity {
 
-    @ManyToOne
-    @JoinColumn(name = "order_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Order order;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "menu_item_id")
     private MenuItem menuItem;
 
